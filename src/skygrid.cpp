@@ -141,9 +141,9 @@ private:
   int _nbins;
   double _min;
   double _max;
-  int _non_null_sample_count;
-  int _null_sample_count;
-  std::vector<int> _histogram;
+  std::size_t _non_null_sample_count;
+  std::size_t _null_sample_count;
+  std::vector<std::size_t> _histogram;
   int _toolow;
   int _toohigh;
 };
@@ -270,104 +270,86 @@ double Cadacs_quantileHI(Rcpp::NumericVector x, double quantile, const double of
 /**
  * C++ version of R stats::mean
  */
-double Cadacs_mean(Rcpp::NumericVector x) {
-  const double* myx=REAL(x);
-  int size = x.size();
-  double mean=0;
-  int non_null_sample_count=0;
-  for (int i=0;i<size;i++)
-  {
-    if (!std::isnan(myx[i])) {
+double Cadacs_mean(Rcpp::NumericVector values) {
+  double mean = 0;
+  std::size_t non_null_sample_count = 0;
+  for (auto v: values) {
+    if (!std::isnan(v)) {
       non_null_sample_count++;
-      mean += myx[i];
+      mean += v;
     }
   }
-  if (non_null_sample_count==0)
+  if (non_null_sample_count == 0) {
     return R_NaN;
-  return mean/non_null_sample_count;
+  }
+  return mean / non_null_sample_count;
 }
 
-double Cadacs_population_variance(Rcpp::NumericVector x, const double offset) {
-  const double* myx=REAL(x);
-  int size = x.size();
-  double v=0;
-  double sum_sq=0;
-  int non_null_sample_count=0;
-  for (int i=0;i<size;i++)
-  {
-    if (!std::isnan(myx[i])) {
+double Cadacs_population_variance(Rcpp::NumericVector values, const double offset) {
+  double sum_sq = 0;
+  std::size_t non_null_sample_count = 0;
+  for (auto v: values) {
+    if (!std::isnan(v)) {
       non_null_sample_count++;
-      v = myx[i]-offset;
-      v *= v;
-      sum_sq += v;
+      v -= offset;
+      sum_sq += v * v;
     }
   }
-  if (non_null_sample_count==0)
+  if (non_null_sample_count == 0) {
     return R_NaN;
-  double N=non_null_sample_count;
-  return sum_sq/N;
+  }
+  return sum_sq / non_null_sample_count;
 }
 
-double Cadacs_sample_variance(Rcpp::NumericVector x, const double offset) {
-  const double* myx=REAL(x);
-  int size = x.size();
-  double v=0;
-  double sum=0;
-  double sum_sq=0;
-  int non_null_sample_count=0;
-  for (int i=0;i<size;i++)
+double Cadacs_sample_variance(Rcpp::NumericVector values, const double offset) {
+  double sum = 0;
+  double sum_sq = 0;
+  std::size_t non_null_sample_count=0;
+  for (auto v: values)
   {
-    if (!std::isnan(myx[i])) {
+    if (!std::isnan(v)) {
       non_null_sample_count++;
-      v = myx[i]-offset;
+      v -= offset;
       sum += v;
-      v *= v;
-      sum_sq += v;
+      sum_sq += v * v;
     }
   }
-  if (non_null_sample_count<=1)
+  if (non_null_sample_count <= 1) {
     return R_NaN;
-  double N=non_null_sample_count;
-  return (N*sum_sq - sum*sum)/(N * (N - 1));
-  //return sqrt(sum_sq);
+  }
+  double N = non_null_sample_count;
+  return (N * sum_sq - sum * sum) / (N * (N - 1));
 }
 
-double Cadacs_median(Rcpp::NumericVector x) {
+double Cadacs_median(Rcpp::NumericVector values)
+{
   AdacsHistogram histogram;
-  histogram.accumulate(x);
+  histogram.accumulate(values);
   return histogram.quantile(0.5);
 }
 
-double Cadacs_mode(Rcpp::NumericVector x) {
-  const double* iiix=REAL(x);
-  int size = x.size();
-  std::vector<double> myx (iiix, iiix+size);
-  double min=std::numeric_limits<double>::max();
-  double max=std::numeric_limits<double>::min();
-  int non_null_sample_count=0;
-  for (int i=0;i<size;i++)
+double Cadacs_mode(Rcpp::NumericVector values)
+{
+  double min = std::numeric_limits<double>::max();
+  double max = std::numeric_limits<double>::min();
+  std::size_t non_null_sample_count = 0;
+  for (auto v: values)
   {
-    if (!std::isnan(myx[i])) {
+    if (!std::isnan(v)) {
       non_null_sample_count++;
-      min = std::min(min,myx[i]);
-      max = std::max(max,myx[i]);
+      min = std::min(min, v);
+      max = std::max(max, v);
     }
   }
 
   // histogram
-  int levels = 16384*2;
-  std::vector<int> histogram;
-  histogram.resize(levels);
-  for (int i=0;i<levels;i++)
-  {
-    histogram[i] = 0;
-  }
+  int levels = 16384 * 2;
+  std::vector<std::size_t> histogram(levels);
   double value_to_bin_index = (levels-1);
   value_to_bin_index /= (max - min);
-  for (int i=0;i<size;i++)
-  {
-    if (!std::isnan(myx[i])) {
-      int index = (myx[i] - min)*value_to_bin_index;
+  for (auto v: values) {
+    if (!std::isnan(v)) {
+      int index = (v - min) * value_to_bin_index;
       histogram[index]++;
     }
   }
@@ -376,9 +358,9 @@ double Cadacs_mode(Rcpp::NumericVector x) {
   double mode=current_bin_lower;
 
   double binwidth = (max - min)/levels;
-  int max_count = 0;
-  for (int i=0;i<levels;i++) {
-    if (histogram[i]>max_count)
+  std::size_t max_count = 0;
+  for (int i = 0; i < levels; i++) {
+    if (histogram[i] > max_count)
     {
       max_count = histogram[i];
       mode = current_bin_lower;
@@ -391,31 +373,32 @@ double Cadacs_mode(Rcpp::NumericVector x) {
 /**
  * Sort based (rather than Histogram based) method to clip outliers (A histogram equivalent has not been evaluated)
  */
-Rcpp::NumericVector Cadacs_magclip(Rcpp::NumericVector x, const int sigma, const int clipiters, const double sigmasel, const int estimate){
-  const double* iiix=REAL(x);
-  int nb = x.length();
-  std::vector<double> myx (iiix, iiix+nb);
-  int length=0;
-  for (int i=0;i<nb;i++)
-  {
-    if (!std::isnan(myx[i])) {
-      myx[length++] = myx[i];
+Rcpp::NumericVector Cadacs_magclip(
+    Rcpp::NumericVector values, const int sigma, const int clipiters,
+    const double sigmasel, const int estimate)
+{
+  const double* iiix = REAL(values);
+  std::vector<double> myx (iiix, iiix + values.size());
+  std::size_t length = 0;
+  for (auto v: values) {
+    if (!std::isnan(v)) {
+      myx[length++] = v;
     }
   }
-  std::sort (myx.begin(), myx.begin()+length, std::less<double>()); // ascending
+  std::sort (myx.begin(), myx.begin() + length); // ascending
 
-  int newlen = length;
+  std::size_t newlen = length;
   if(clipiters>0 && length>0){
     double sigcut=R::pnorm(sigmasel, 0.0, 1.0, 1, 0);
 
     for(int iteration=0; iteration<clipiters; iteration++){
       if(newlen<=1)
         break;
-      int oldlen=newlen;
+      std::size_t oldlen=newlen;
       double roughmed=myx[newlen/2-1];
       double clipsigma=sigma;
       if (sigma==1) {
-        double l1=std::max(newlen,2);
+        double l1=std::max(newlen, std::size_t(2));
         double y=1.0-2.0/l1;
         clipsigma = R::qnorm(y, 0.0, 1.0, 1, 0);
       }
@@ -433,23 +416,19 @@ Rcpp::NumericVector Cadacs_magclip(Rcpp::NumericVector x, const int sigma, const
         break;
       }
       newlen = 0;
-      for (int i=0;i<oldlen;i++)
-      {
-        if(myx[i]>=(roughmed-vallims) && myx[i]<=(roughmed+vallims))
-        {
-          myx[newlen++] = myx[i];
+      for (auto v: myx) {
+        if (v >= (roughmed - vallims) && v <= (roughmed + vallims)) {
+          myx[newlen++] = v;
         }
       }
-      if(oldlen==newlen)
+      if (oldlen == newlen) {
         break;
+      }
     }
   }
   // copy sky cell values to vec and return
   Rcpp::NumericVector vec(newlen);
-  for (int i=0;i<newlen;i++)
-  {
-    vec[i] = myx[i];
-  }
+  std::copy(myx.begin(), myx.begin() + newlen, vec.begin());
   return vec;
 }
 
