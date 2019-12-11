@@ -31,22 +31,19 @@ public:
    */
   static double calcSlopeAtMiddle(const double *x, const double *z)
   {
-    int i;
     double S13, S34, S12, S24, W2, W3, Z, DEN;
     double A[4], B[4];
 
     // Calculate differences between input points
-    for (i = 0; i < 4; i++) {
-      A[i] = x[i + 1] - x[i];
-      B[i] = z[i + 1] - z[i];
-    }
+    std::adjacent_difference(x + 1, x + 5, A);
+    std::adjacent_difference(z + 1, z + 5, B);
 
     S13 = A[0] * B[2] - A[2] * B[0];
     S34 = A[2] * B[3] - A[3] * B[2];
     S12 = A[0] * B[1] - A[1] * B[0];
     S24 = A[1] * B[3] - A[3] * B[1];
-    W2  = sqrt(std::abs(S13 * S34));
-    W3  = sqrt(std::abs(S12 * S24));
+    W2  = std::sqrt(std::abs(S13 * S34));
+    W3  = std::sqrt(std::abs(S12 * S24));
     Z   = W2 * B[1] + W3 * B[2];
     DEN = W2 * A[1] + W3 * A[2];
 
@@ -95,7 +92,7 @@ public:
     int i;
 
     // One spline for each interval (xorig[i], xorig[i+1])
-    ncoeffs = npts-1;
+    ncoeffs = npts - 1;
     coeffs.reserve(ncoeffs);
 
     for (i = 0; i < ncoeffs; i++) {
@@ -112,27 +109,27 @@ public:
       {
         // do first interval
         s3 = dy / dx;
-        s4 = Coeff::calcSlopeAtMiddle(&(xorig[0]), &(yorig[0]));
+        s4 = Coeff::calcSlopeAtMiddle(xorig, yorig);
         s4 = (s4 + s3) / 2;
       }
       else if (i == 1)
       {
         // do second interval
         s3 = dy / dx;
-        s4 = Coeff::calcSlopeAtMiddle(&(xorig[0]), &(yorig[0]));
+        s4 = Coeff::calcSlopeAtMiddle(xorig, yorig);
         s3 = (s4 + s3) / 2;
       }
       else if (i == ncoeffs - 2)
       {
         // to second last interval
-        s3 = Coeff::calcSlopeAtMiddle(&xorig[i - 2], &yorig[i - 2]);
+        s3 = Coeff::calcSlopeAtMiddle(xorig + i - 2, yorig + i - 2);
         s4 = dy / dx;
         s4 = (s4 + s3) / 2;
       }
       else if (i == ncoeffs - 1)
       {
         // do last interval
-        s3 = Coeff::calcSlopeAtMiddle(&xorig[ncoeffs - 4], &yorig[ncoeffs - 4]);
+        s3 = Coeff::calcSlopeAtMiddle(xorig + ncoeffs - 4, yorig + ncoeffs - 4);
         x3 = xorig[npts - 2];
         y3 = yorig[npts - 2];
         x4 = xorig[npts - 1];
@@ -146,8 +143,8 @@ public:
       {
         // do the "pure" akima intervals
         // Determine slope at beginning and end of current interval.
-        s3 = Coeff::calcSlopeAtMiddle(&xorig[i - 2], &yorig[i - 2]);
-        s4 = Coeff::calcSlopeAtMiddle(&xorig[i - 1], &yorig[i - 1]);
+        s3 = Coeff::calcSlopeAtMiddle(xorig + i - 2, yorig + i - 2);
+        s4 = Coeff::calcSlopeAtMiddle(xorig + i - 1, yorig + i - 1);
       }
 
       //
