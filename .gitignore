@@ -39,3 +39,8 @@ vignettes/rsconnect
 # Rcp stuff
 src/*.so
 src/*.o
+
+# Eclipse files
+/.project
+/.cproject
+/.settings
